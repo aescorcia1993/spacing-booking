@@ -33,6 +33,32 @@ jobs:
         if: steps.check_files.outputs.files_exists == 'true'
         run: composer validate --no-check-publish && composer install --prefer-dist --no-progress --optimize-autoloader --no-dev
 
+      - name: Create production .env file
+        run: |
+          cp .env.example .env || echo "APP_NAME=SpacingBooking" > .env
+          echo "APP_ENV=production" >> .env
+          echo "APP_DEBUG=false" >> .env
+          echo "APP_URL=https://be-spacing-booking-hdgzhqdbhhareqfw.canadacentral-01.azurewebsites.net" >> .env
+          echo "LOG_CHANNEL=stack" >> .env
+          echo "LOG_LEVEL=error" >> .env
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "CACHE_DRIVER=file" >> .env
+          echo "SESSION_DRIVER=file" >> .env
+          echo "QUEUE_CONNECTION=sync" >> .env
+          echo "L5_SWAGGER_USE_ABSOLUTE_PATH=true" >> .env
+          echo "L5_SWAGGER_CONST_HOST=https://be-spacing-booking-hdgzhqdbhhareqfw.canadacentral-01.azurewebsites.net/api" >> .env
+
+      - name: Generate application key
+        run: php artisan key:generate --force
+
+      - name: Create required directories
+        run: |
+          mkdir -p storage/framework/{sessions,views,cache}
+          mkdir -p storage/logs
+          mkdir -p storage/api-docs
+          mkdir -p bootstrap/cache
+          chmod -R 775 storage bootstrap/cache
+
       - name: Generate Swagger documentation
         run: php artisan l5-swagger:generate
 
