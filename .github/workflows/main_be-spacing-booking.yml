@@ -62,11 +62,14 @@ jobs:
       - name: Generate Swagger documentation
         run: php artisan l5-swagger:generate
 
+      - name: Zip artifact for deployment
+        run: zip -r release.zip . -x '*.git*' 'node_modules/*' 'tests/*'
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: php-app
-          path: .
+          path: release.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -80,6 +83,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: php-app
+
+      - name: Unzip artifact for deployment
+        run: unzip release.zip -d .
 
       - name: Login to Azure
         uses: azure/login@v2

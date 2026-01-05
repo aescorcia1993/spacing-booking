@@ -1,44 +1,77 @@
 #!/bin/bash
+set -e
 
-echo "=== Laravel Startup Script ==="
-echo "Working directory: $(pwd)"
+echo "========================================="
+echo "Laravel Azure Startup Script"
+echo "========================================="
 
-# Navigate to app directory
 cd /home/site/wwwroot
 
-# Create necessary directories if they don't exist
-echo "Creating required directories..."
-mkdir -p storage/framework/{sessions,views,cache,testing}
-mkdir -p storage/logs
-mkdir -p storage/api-docs
-mkdir -p bootstrap/cache
+# Install Composer if not exists
+if [ ! -f "composer.phar" ]; then
+    echo "Installing Composer..."
+    curl -sS https://getcomposer.org/installer | php
+fi
 
-# Set permissions for storage and cache
+# Install dependencies if vendor doesn't exist
+if [ ! -d "vendor" ]; then
+    echo "Installing Composer dependencies..."
+    php composer.phar install --no-dev --optimize-autoloader --no-interaction
+else
+    echo "Vendor directory exists, skipping composer install"
+fi
+
+# Create .env if doesn't exist
+if [ ! -f ".env" ]; then
+    echo "Creating .env file..."
+    cp .env.example .env 2>/dev/null || cat > .env << 'EOF'
+APP_NAME=SpacingBooking
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=${APP_URL}
+LOG_CHANNEL=stack
+LOG_LEVEL=error
+DB_CONNECTION=mysql
+CACHE_DRIVER=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+L5_SWAGGER_USE_ABSOLUTE_PATH=true
+L5_SWAGGER_CONST_HOST=${APP_URL}/api
+EOF
+fi
+
+# Generate key if not exists
+if ! grep -q "APP_KEY=base64:" .env; then
+    echo "Generating application key..."
+    php artisan key:generate --force
+fi
+
+# Create directories
+echo "Creating directories..."
+mkdir -p storage/framework/{sessions,views,cache}
+mkdir -p storage/logs storage/api-docs bootstrap/cache
+
+# Set permissions
 echo "Setting permissions..."
 chmod -R 777 storage bootstrap/cache
 
-# Clear all caches
-echo "Clearing Laravel caches..."
-php artisan config:clear
-php artisan cache:clear
-php artisan route:clear
-php artisan view:clear
+# Clear caches
+echo "Clearing caches..."
+php artisan config:clear 2>/dev/null || true
+php artisan cache:clear 2>/dev/null || true
+php artisan route:clear 2>/dev/null || true
+php artisan view:clear 2>/dev/null || true
 
-# Generate Swagger documentation
+# Generate Swagger
 echo "Generating Swagger documentation..."
-php artisan l5-swagger:generate
+php artisan l5-swagger:generate 2>/dev/null || echo "Warning: Swagger generation failed"
 
-# List generated files for debugging
-echo "Checking api-docs directory:"
-ls -la storage/api-docs/
+# Cache for production
+echo "Caching configuration..."
+php artisan config:cache 2>/dev/null || true
+php artisan route:cache 2>/dev/null || true
 
-# Cache configurations for production (only if not in debug mode)
-if [ "$APP_DEBUG" != "true" ]; then
-    echo "Caching configurations for production..."
-    php artisan config:cache
-    php artisan route:cache
-    php artisan view:cache
-fi
-
-echo "=== Startup completed successfully ==="
-echo "API documentation should be available at: ${APP_URL}/api/documentation"
+echo "========================================="
+echo "Startup completed!"
+echo "Swagger: ${APP_URL}/api/documentation"
+echo "========================================="
