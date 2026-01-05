@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: spacingbookingacr.azurecr.io
+  REGISTRY: be1sb.azurecr.io
   IMAGE_NAME: spacing-booking
 
 jobs:
