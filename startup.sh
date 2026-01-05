@@ -1,46 +1,44 @@
 #!/bin/bash
 
+echo "=== Laravel Startup Script ==="
+echo "Working directory: $(pwd)"
+
 # Navigate to app directory
 cd /home/site/wwwroot
 
-# Copy custom nginx configuration
-echo "Configuring Nginx..."
-cp /home/site/wwwroot/nginx.conf /etc/nginx/sites-available/default
-
-# Set proper permissions
-echo "Setting permissions..."
-chmod -R 755 /home/site/wwwroot
-chown -R www-data:www-data /home/site/wwwroot/storage /home/site/wwwroot/bootstrap/cache
-
 # Create necessary directories if they don't exist
-mkdir -p /home/site/wwwroot/storage/framework/sessions
-mkdir -p /home/site/wwwroot/storage/framework/views
-mkdir -p /home/site/wwwroot/storage/framework/cache
-mkdir -p /home/site/wwwroot/storage/logs
-mkdir -p /home/site/wwwroot/storage/api-docs
+echo "Creating required directories..."
+mkdir -p storage/framework/{sessions,views,cache,testing}
+mkdir -p storage/logs
+mkdir -p storage/api-docs
+mkdir -p bootstrap/cache
 
 # Set permissions for storage and cache
-chmod -R 775 /home/site/wwwroot/storage
-chmod -R 775 /home/site/wwwroot/bootstrap/cache
+echo "Setting permissions..."
+chmod -R 777 storage bootstrap/cache
 
-# Clear and cache Laravel configuration
-echo "Optimizing Laravel..."
+# Clear all caches
+echo "Clearing Laravel caches..."
 php artisan config:clear
 php artisan cache:clear
 php artisan route:clear
 php artisan view:clear
 
-# Cache configurations for production
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
 # Generate Swagger documentation
 echo "Generating Swagger documentation..."
 php artisan l5-swagger:generate
 
-# Restart Nginx
-echo "Restarting Nginx..."
-nginx -t && nginx -s reload
+# List generated files for debugging
+echo "Checking api-docs directory:"
+ls -la storage/api-docs/
 
-echo "Startup completed successfully!"
+# Cache configurations for production (only if not in debug mode)
+if [ "$APP_DEBUG" != "true" ]; then
+    echo "Caching configurations for production..."
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+fi
+
+echo "=== Startup completed successfully ==="
+echo "API documentation should be available at: ${APP_URL}/api/documentation"
