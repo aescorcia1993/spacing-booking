@@ -12,12 +12,12 @@ namespace App\Http\Controllers;
  *         name="API Support"
  *     )
  * )
- * 
+ *
  * @OA\Server(
  *     url=L5_SWAGGER_CONST_HOST,
  *     description="API Server"
  * )
- * 
+ *
  * @OA\SecurityScheme(
  *     securityScheme="sanctum",
  *     type="http",
@@ -25,22 +25,22 @@ namespace App\Http\Controllers;
  *     bearerFormat="JWT",
  *     description="Ingresa el token JWT generado al hacer login (sin 'Bearer' al inicio)"
  * )
- * 
+ *
  * @OA\Tag(
  *     name="Authentication",
  *     description="Endpoints para registro, login y gestión de autenticación"
  * )
- * 
+ *
  * @OA\Tag(
  *     name="Spaces",
  *     description="Endpoints públicos para consultar espacios disponibles"
  * )
- * 
+ *
  * @OA\Tag(
  *     name="Bookings",
  *     description="Endpoints para gestionar reservas (requiere autenticación)"
  * )
- * 
+ *
  * @OA\Tag(
  *     name="Admin - Spaces",
  *     description="Endpoints para administración de espacios (requiere rol admin)"
