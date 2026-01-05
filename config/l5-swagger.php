@@ -94,6 +94,11 @@ return [
             'base' => env('L5_SWAGGER_BASE_PATH', null),
 
             /*
+             * Swagger server host override
+             */
+            'const_host' => env('L5_SWAGGER_CONST_HOST', env('APP_URL') . '/api'),
+
+            /*
              * Absolute path to directories that should be excluded from scanning
              * @deprecated Please use `scanOptions.exclude`
              * `scanOptions.exclude` overwrites this
