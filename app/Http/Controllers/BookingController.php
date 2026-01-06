@@ -37,7 +37,7 @@ class BookingController extends Controller
         // Filtrar por tipo de reserva (upcoming, active, past)
         if ($request->has('type') && $request->type) {
             $now = now();
-            
+
             switch ($request->type) {
                 case 'upcoming':
                     // Reservas futuras que aún no han comenzado
@@ -47,7 +47,7 @@ class BookingController extends Controller
                     })
                     ->whereRaw("CONCAT(booking_date, ' ', start_time) > ?", [$now]);
                     break;
-                    
+
                 case 'active':
                     // Reservas que están ocurriendo ahora
                     $query->where(function($q) use ($now) {
@@ -57,7 +57,7 @@ class BookingController extends Controller
                     ->whereRaw("CONCAT(booking_date, ' ', start_time) <= ?", [$now])
                     ->whereRaw("CONCAT(booking_date, ' ', end_time) >= ?", [$now]);
                     break;
-                    
+
                 case 'past':
                     // Reservas completadas, canceladas o que ya terminaron
                     $query->where(function($q) use ($now) {
