@@ -26,6 +26,11 @@ return [
                 'swagger_ui_assets_path' => env('L5_SWAGGER_UI_ASSETS_PATH', 'vendor/swagger-api/swagger-ui/dist/'),
 
                 /*
+                 * Force HTTPS for asset URLs to prevent mixed content errors
+                 */
+                'force_https' => env('L5_SWAGGER_FORCE_HTTPS', true),
+
+                /*
                  * File name of the generated json documentation file
                  */
                 'docs_json' => 'api-docs.json',
