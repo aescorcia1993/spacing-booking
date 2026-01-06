@@ -19,7 +19,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:4200', 'http://localhost:4200/'],
+    'allowed_origins' => [
+        'http://localhost:4200',
+        'http://localhost:4200/',
+        'https://zealous-coast-03bd99b1e.6.azurestaticapps.net',
+        'https://zealous-coast-03bd99b1e.6.azurestaticapps.net/'
+    ],
 
     'allowed_origins_patterns' => [],
 
