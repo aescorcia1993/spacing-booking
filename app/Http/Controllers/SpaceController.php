@@ -92,7 +92,11 @@ class SpaceController extends Controller
         // Validar orden
         $sortOrder = strtolower($sortOrder) === 'asc' ? 'asc' : 'desc';
 
-        $spaces = $query->orderBy($sortField, $sortOrder)->paginate(15);
+        // Obtener el número de registros por página (por defecto 10)
+        $perPage = $request->get('per_page', 10);
+        $perPage = min(max((int)$perPage, 1), 100); // Entre 1 y 100
+
+        $spaces = $query->orderBy($sortField, $sortOrder)->paginate($perPage);
         return response()->json($spaces);
     }
 
@@ -125,7 +129,7 @@ class SpaceController extends Controller
      *             @OA\Property(property="type", type="string", example="meeting_room"),
      *             @OA\Property(property="capacity", type="integer", example=10),
      *             @OA\Property(property="photos", type="array", @OA\Items(type="string", example="https://example.com/photo.jpg")),
-     *             @OA\Property(property="available_hours", type="object", 
+     *             @OA\Property(property="available_hours", type="object",
      *                 @OA\Property(property="start", type="string", example="08:00"),
      *                 @OA\Property(property="end", type="string", example="18:00")
      *             ),
@@ -212,7 +216,7 @@ class SpaceController extends Controller
     public function destroy($id)
     {
         $space = Space::findOrFail($id);
-        
+
         // Verificar si tiene reservas activas
         $activeBookings = $space->bookings()
             ->where('status', '!=', 'cancelled')
