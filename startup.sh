@@ -62,13 +62,16 @@ php artisan cache:clear 2>/dev/null || true
 php artisan route:clear 2>/dev/null || true
 php artisan view:clear 2>/dev/null || true
 
-# Generate Swagger
-echo "Generating Swagger documentation..."
-php artisan l5-swagger:generate 2>/dev/null || echo "Warning: Swagger generation failed"
-
-# Cache for production
+# Cache for production (BEFORE Swagger generation)
 echo "Caching configuration..."
 php artisan config:cache 2>/dev/null || true
+
+# Generate Swagger (AFTER config cache)
+echo "Generating Swagger documentation..."
+php artisan l5-swagger:generate --force 2>&1 || echo "Warning: Swagger generation failed"
+
+# Cache routes (AFTER Swagger generation)
+echo "Caching routes..."
 php artisan route:cache 2>/dev/null || true
 
 echo "========================================="
