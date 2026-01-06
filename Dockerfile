@@ -64,10 +64,13 @@ COPY docker/supervisord.conf /etc/supervisord.conf
 RUN echo '#!/bin/sh' > /startup.sh && \
     echo 'set -e' >> /startup.sh && \
     echo 'echo "Starting Laravel application..."' >> /startup.sh && \
+    echo 'cd /var/www/html' >> /startup.sh && \
     echo 'php artisan config:clear || true' >> /startup.sh && \
     echo 'php artisan route:clear || true' >> /startup.sh && \
     echo 'php artisan view:clear || true' >> /startup.sh && \
-    echo 'php artisan l5-swagger:generate || true' >> /startup.sh && \
+    echo 'php artisan l5-swagger:generate || echo "Swagger generation skipped"' >> /startup.sh && \
+    echo 'php artisan config:cache || true' >> /startup.sh && \
+    echo 'php artisan route:cache || true' >> /startup.sh && \
     echo 'echo "Starting services..."' >> /startup.sh && \
     echo 'exec /usr/bin/supervisord -c /etc/supervisord.conf' >> /startup.sh && \
     chmod +x /startup.sh
