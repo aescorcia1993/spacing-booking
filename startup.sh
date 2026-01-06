@@ -5,7 +5,15 @@ echo "========================================="
 echo "Laravel Azure Startup Script"
 echo "========================================="
 
-cd /home/site/wwwroot
+# Determine working directory (Azure uses /home/site/wwwroot, Docker uses /var/www/html)
+if [ -d "/home/site/wwwroot" ]; then
+    WORKDIR="/home/site/wwwroot"
+else
+    WORKDIR="/var/www/html"
+fi
+
+echo "Working directory: $WORKDIR"
+cd $WORKDIR
 
 # Install Composer if not exists
 if [ ! -f "composer.phar" ]; then
