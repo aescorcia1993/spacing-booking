@@ -73,7 +73,22 @@ class SpaceController extends Controller
     }
 
     /**
-     * Display a listing of all spaces (admin only).
+     * @OA\Get(
+     *     path="/admin/spaces",
+     *     summary="Listar todos los espacios (Admin)",
+     *     tags={"Admin - Spaces"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="sort_field", in="query", description="Campo para ordenar (id, name, type, capacity, created_at)", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="sort_order", in="query", description="Orden (asc, desc)", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="per_page", in="query", description="Registros por página", required=false, @OA\Schema(type="integer", default=10)),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Lista paginada de todos los espacios",
+     *         @OA\JsonContent(type="object")
+     *     ),
+     *     @OA\Response(response=401, description="No autenticado"),
+     *     @OA\Response(response=403, description="No autorizado")
+     * )
      */
     public function adminIndex(Request $request)
     {
@@ -101,7 +116,18 @@ class SpaceController extends Controller
     }
 
     /**
-     * Display the specified space.
+     * @OA\Get(
+     *     path="/spaces/{id}",
+     *     summary="Ver detalle de un espacio",
+     *     tags={"Spaces"},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Detalle del espacio con sus reservas activas",
+     *         @OA\JsonContent(type="object")
+     *     ),
+     *     @OA\Response(response=404, description="Espacio no encontrado")
+     * )
      */
     public function show($id)
     {
@@ -178,7 +204,37 @@ class SpaceController extends Controller
     }
 
     /**
-     * Update the specified space (admin only).
+     * @OA\Put(
+     *     path="/admin/spaces/{id}",
+     *     summary="Actualizar un espacio (Admin)",
+     *     tags={"Admin - Spaces"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="name", type="string", example="Sala de Reuniones A Actualizada"),
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="type", type="string", example="meeting_room"),
+     *             @OA\Property(property="capacity", type="integer", example=15),
+     *             @OA\Property(property="photos", type="array", @OA\Items(type="string")),
+     *             @OA\Property(property="available_hours", type="object"),
+     *             @OA\Property(property="is_active", type="boolean")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Espacio actualizado exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="space", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="No autenticado"),
+     *     @OA\Response(response=403, description="No autorizado"),
+     *     @OA\Response(response=404, description="Espacio no encontrado"),
+     *     @OA\Response(response=422, description="Errores de validación")
+     * )
      */
     public function update(Request $request, $id)
     {
@@ -211,7 +267,24 @@ class SpaceController extends Controller
     }
 
     /**
-     * Remove the specified space (admin only).
+     * @OA\Delete(
+     *     path="/admin/spaces/{id}",
+     *     summary="Eliminar un espacio (Admin)",
+     *     tags={"Admin - Spaces"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Espacio eliminado exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=400, description="El espacio tiene reservas activas"),
+     *     @OA\Response(response=401, description="No autenticado"),
+     *     @OA\Response(response=403, description="No autorizado"),
+     *     @OA\Response(response=404, description="Espacio no encontrado")
+     * )
      */
     public function destroy($id)
     {
@@ -237,7 +310,19 @@ class SpaceController extends Controller
     }
 
     /**
-     * Get available types of spaces.
+     * @OA\Get(
+     *     path="/spaces-types",
+     *     summary="Obtener tipos de espacios disponibles",
+     *     tags={"Spaces"},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Lista de tipos de espacios",
+     *         @OA\JsonContent(
+     *             type="array",
+     *             @OA\Items(type="string", example="meeting_room")
+     *         )
+     *     )
+     * )
      */
     public function types()
     {
@@ -249,7 +334,32 @@ class SpaceController extends Controller
     }
 
     /**
-     * Check availability for a space in a date range.
+     * @OA\Post(
+     *     path="/spaces/{id}/check-availability",
+     *     summary="Verificar disponibilidad de un espacio",
+     *     tags={"Spaces"},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"start_time","end_time"},
+     *             @OA\Property(property="start_time", type="string", format="date-time", example="2026-01-20 09:00:00"),
+     *             @OA\Property(property="end_time", type="string", format="date-time", example="2026-01-20 11:00:00")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Información de disponibilidad",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="available", type="boolean", example=true),
+     *             @OA\Property(property="space_id", type="integer"),
+     *             @OA\Property(property="start_time", type="string"),
+     *             @OA\Property(property="end_time", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Espacio no encontrado"),
+     *     @OA\Response(response=422, description="Errores de validación")
+     * )
      */
     public function checkAvailability($id, Request $request)
     {

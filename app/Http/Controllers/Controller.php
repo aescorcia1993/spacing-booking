@@ -18,6 +18,11 @@ namespace App\Http\Controllers;
  *     description="API Server"
  * )
  *
+ * @OA\Server(
+ *     url="http://localhost:8000/api",
+ *     description="Local Development Server"
+ * )
+ *
  * @OA\SecurityScheme(
  *     securityScheme="sanctum",
  *     type="http",

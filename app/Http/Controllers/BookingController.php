@@ -11,12 +11,63 @@ use Carbon\Carbon;
 class BookingController extends Controller
 {
     /**
-     * Display a listing of the authenticated user's bookings.
+     * @OA\Get(
+     *     path="/bookings",
+     *     summary="Listar reservas del usuario autenticado",
+     *     tags={"Bookings"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="status", in="query", description="Filtrar por estado (confirmed, pending, cancelled, completed)", required=false, @OA\Schema(type="string")),
+     *     @OA\Parameter(name="from_date", in="query", description="Fecha desde", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="to_date", in="query", description="Fecha hasta", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Lista de reservas del usuario",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(type="object"))
+     *         )
+     *     ),
+     *     @OA\Response(response=401, description="No autenticado")
+     * )
      */
     public function index(Request $request)
     {
         $query = Booking::where('user_id', $request->user()->id)
             ->with('space');
+
+        // Filtrar por tipo de reserva (upcoming, active, past)
+        if ($request->has('type') && $request->type) {
+            $now = now();
+            
+            switch ($request->type) {
+                case 'upcoming':
+                    // Reservas futuras que aún no han comenzado
+                    $query->where(function($q) use ($now) {
+                        $q->where('status', 'confirmed')
+                          ->orWhere('status', 'pending');
+                    })
+                    ->whereRaw("CONCAT(booking_date, ' ', start_time) > ?", [$now]);
+                    break;
+                    
+                case 'active':
+                    // Reservas que están ocurriendo ahora
+                    $query->where(function($q) use ($now) {
+                        $q->where('status', 'confirmed')
+                          ->orWhere('status', 'pending');
+                    })
+                    ->whereRaw("CONCAT(booking_date, ' ', start_time) <= ?", [$now])
+                    ->whereRaw("CONCAT(booking_date, ' ', end_time) >= ?", [$now]);
+                    break;
+                    
+                case 'past':
+                    // Reservas completadas, canceladas o que ya terminaron
+                    $query->where(function($q) use ($now) {
+                        $q->where('status', 'completed')
+                          ->orWhere('status', 'cancelled')
+                          ->orWhereRaw("CONCAT(booking_date, ' ', end_time) < ?", [$now]);
+                    });
+                    break;
+            }
+        }
 
         // Filtrar por estado
         if ($request->has('status') && $request->status) {
@@ -25,20 +76,43 @@ class BookingController extends Controller
 
         // Filtrar por fecha
         if ($request->has('from_date')) {
-            $query->where('start_time', '>=', $request->from_date);
+            $query->where('booking_date', '>=', $request->from_date);
         }
 
         if ($request->has('to_date')) {
-            $query->where('end_time', '<=', $request->to_date);
+            $query->where('booking_date', '<=', $request->to_date);
         }
 
-        $bookings = $query->orderBy('start_time', 'desc')->paginate(10);
+        // Ordenar y paginar
+        $perPage = $request->get('per_page', 10);
+        $bookings = $query->orderBy('booking_date', 'desc')
+                         ->orderBy('start_time', 'desc')
+                         ->paginate($perPage);
 
-        return response()->json($bookings);
+        return response()->json([
+            'data' => $bookings,
+            'total' => $bookings->count(),
+            'current_page' => 1,
+            'per_page' => $bookings->count(),
+            'last_page' => 1,
+        ]);
     }
 
     /**
-     * Display the specified booking.
+     * @OA\Get(
+     *     path="/bookings/{id}",
+     *     summary="Ver detalle de una reserva",
+     *     tags={"Bookings"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Detalle de la reserva",
+     *         @OA\JsonContent(type="object")
+     *     ),
+     *     @OA\Response(response=401, description="No autenticado"),
+     *     @OA\Response(response=404, description="Reserva no encontrada")
+     * )
      */
     public function show(Request $request, $id)
     {
@@ -51,7 +125,35 @@ class BookingController extends Controller
     }
 
     /**
-     * Store a newly created booking.
+     * @OA\Post(
+     *     path="/bookings",
+     *     summary="Crear nueva reserva",
+     *     tags={"Bookings"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"space_id","event_name","booking_date","start_time","end_time"},
+     *             @OA\Property(property="space_id", type="integer", example=1),
+     *             @OA\Property(property="event_name", type="string", example="Reunión de equipo"),
+     *             @OA\Property(property="booking_date", type="string", format="date", example="2026-01-20"),
+     *             @OA\Property(property="start_time", type="string", format="time", example="09:00:00"),
+     *             @OA\Property(property="end_time", type="string", format="time", example="11:00:00"),
+     *             @OA\Property(property="notes", type="string", example="Traer laptop")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=201,
+     *         description="Reserva creada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="booking", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=400, description="Espacio no disponible"),
+     *     @OA\Response(response=409, description="El espacio ya está reservado para ese horario"),
+     *     @OA\Response(response=422, description="Errores de validación")
+     * )
      */
     public function store(Request $request)
     {
@@ -120,7 +222,35 @@ class BookingController extends Controller
     }
 
     /**
-     * Update the specified booking.
+     * @OA\Put(
+     *     path="/bookings/{id}",
+     *     summary="Actualizar una reserva",
+     *     tags={"Bookings"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="space_id", type="integer", example=1),
+     *             @OA\Property(property="event_name", type="string", example="Reunión actualizada"),
+     *             @OA\Property(property="booking_date", type="string", format="date", example="2026-01-20"),
+     *             @OA\Property(property="start_time", type="string", format="time", example="10:00:00"),
+     *             @OA\Property(property="end_time", type="string", format="time", example="12:00:00"),
+     *             @OA\Property(property="notes", type="string", example="Notas actualizadas")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reserva actualizada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="booking", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=400, description="No se pueden modificar reservas pasadas o canceladas"),
+     *     @OA\Response(response=404, description="Reserva no encontrada"),
+     *     @OA\Response(response=409, description="Conflicto de horario")
+     * )
      */
     public function update(Request $request, $id)
     {
@@ -129,7 +259,8 @@ class BookingController extends Controller
             ->firstOrFail();
 
         // No permitir modificar reservas pasadas o canceladas
-        if ($booking->end_time < now()) {
+        $endDateTime = Carbon::parse($booking->end_datetime);
+        if ($endDateTime->isPast()) {
             return response()->json([
                 'message' => 'No se pueden modificar reservas pasadas'
             ], 400);
@@ -148,6 +279,8 @@ class BookingController extends Controller
             'start_time' => 'sometimes|required|date_format:H:i:s',
             'end_time' => 'sometimes|required|date_format:H:i:s|after:start_time',
             'notes' => 'nullable|string',
+            'attendees' => 'sometimes|integer|min:1',
+            'purpose' => 'sometimes|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -157,28 +290,61 @@ class BookingController extends Controller
             ], 422);
         }
 
+        // Si se está cambiando el espacio, verificar que esté activo
+        if ($request->has('space_id') && $request->space_id != $booking->space_id) {
+            $space = Space::where('id', $request->space_id)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$space) {
+                return response()->json([
+                    'message' => 'El espacio seleccionado no está disponible'
+                ], 400);
+            }
+
+            // Verificar capacidad si se proporciona attendees
+            if ($request->has('attendees') && $request->attendees > $space->capacity) {
+                return response()->json([
+                    'message' => "El espacio solo tiene capacidad para {$space->capacity} personas"
+                ], 400);
+            }
+        }
+
         // Si se están modificando fechas u horarios, verificar solapamiento
         $spaceId = $request->space_id ?? $booking->space_id;
         $bookingDate = $request->booking_date ?? $booking->booking_date;
         $startTime = $request->start_time ?? $booking->start_time;
         $endTime = $request->end_time ?? $booking->end_time;
 
+        // Validar que la nueva fecha no sea del pasado
+        $newStartDateTime = Carbon::parse($bookingDate . ' ' . $startTime);
+        if ($newStartDateTime->isPast()) {
+            return response()->json([
+                'message' => 'No se puede crear una reserva con fecha y hora del pasado'
+            ], 400);
+        }
+
+        // Validar duración mínima (30 minutos) y máxima (8 horas = 480 minutos)
+        $newEndDateTime = Carbon::parse($bookingDate . ' ' . $endTime);
+        $durationMinutes = $newStartDateTime->diffInMinutes($newEndDateTime);
+
+        if ($durationMinutes < 30) {
+            return response()->json([
+                'message' => 'La duración mínima de la reserva es de 30 minutos'
+            ], 400);
+        }
+
+        if ($durationMinutes > 480) {
+            return response()->json([
+                'message' => 'La duración de la reserva no puede exceder 8 horas'
+            ], 400);
+        }
+
+        // Verificar solapamiento con otras reservas
         if (Booking::hasOverlap($spaceId, $bookingDate, $startTime, $endTime, $booking->id)) {
             return response()->json([
                 'message' => 'El espacio ya está reservado para el horario seleccionado'
             ], 409);
-        }
-
-        // Validar duración máxima (8 horas = 480 minutos)
-        if ($request->has('start_time') && $request->has('end_time')) {
-            $startDateTime = Carbon::parse($bookingDate . ' ' . $startTime);
-            $endDateTime = Carbon::parse($bookingDate . ' ' . $endTime);
-            $durationMinutes = $endDateTime->diffInMinutes($startDateTime);
-            if ($durationMinutes > 480) {
-                return response()->json([
-                    'message' => 'La duración de la reserva no puede exceder 8 horas'
-                ], 400);
-            }
         }
 
         $booking->update($request->all());
@@ -191,7 +357,23 @@ class BookingController extends Controller
     }
 
     /**
-     * Cancel the specified booking.
+     * @OA\Post(
+     *     path="/bookings/{id}/cancel",
+     *     summary="Cancelar una reserva",
+     *     tags={"Bookings"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reserva cancelada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="booking", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=400, description="La reserva ya está cancelada o es pasada"),
+     *     @OA\Response(response=404, description="Reserva no encontrada")
+     * )
      */
     public function cancel(Request $request, $id)
     {
@@ -206,7 +388,8 @@ class BookingController extends Controller
         }
 
         // No permitir cancelar reservas que ya pasaron
-        if ($booking->end_time < now()) {
+        $endDateTime = Carbon::parse($booking->end_datetime);
+        if ($endDateTime->isPast()) {
             return response()->json([
                 'message' => 'No se pueden cancelar reservas pasadas'
             ], 400);
@@ -221,7 +404,21 @@ class BookingController extends Controller
     }
 
     /**
-     * Remove the specified booking (hard delete).
+     * @OA\Delete(
+     *     path="/bookings/{id}",
+     *     summary="Eliminar permanentemente una reserva",
+     *     tags={"Bookings"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reserva eliminada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Reserva no encontrada")
+     * )
      */
     public function destroy(Request $request, $id)
     {
@@ -237,7 +434,20 @@ class BookingController extends Controller
     }
 
     /**
-     * Get bookings for a specific space and date range.
+     * @OA\Get(
+     *     path="/spaces/{spaceId}/bookings",
+     *     summary="Obtener reservas de un espacio en un rango de fechas",
+     *     tags={"Spaces"},
+     *     @OA\Parameter(name="spaceId", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="start_date", in="query", required=true, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", required=true, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Lista de reservas del espacio",
+     *         @OA\JsonContent(type="array", @OA\Items(type="object"))
+     *     ),
+     *     @OA\Response(response=422, description="Errores de validación")
+     * )
      */
     public function getSpaceBookings($spaceId, Request $request)
     {
@@ -263,7 +473,20 @@ class BookingController extends Controller
     }
 
     /**
-     * Get all bookings with optional date range filter (for calendar view).
+     * @OA\Get(
+     *     path="/bookings/all",
+     *     summary="Obtener todas las reservas (para vista de calendario)",
+     *     tags={"Bookings"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="start_date", in="query", description="Fecha desde", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Parameter(name="end_date", in="query", description="Fecha hasta", required=false, @OA\Schema(type="string", format="date")),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Lista de todas las reservas activas",
+     *         @OA\JsonContent(type="array", @OA\Items(type="object"))
+     *     ),
+     *     @OA\Response(response=401, description="No autenticado")
+     * )
      */
     public function getAllBookings(Request $request)
     {
