@@ -44,8 +44,8 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --no-script
 # Install laravel/pail
 RUN composer require laravel/pail --dev --no-interaction
 
-# Generate application key
-RUN php artisan key:generate --force || true
+# Generate application key (create one if doesn't exist in build time)
+RUN php artisan key:generate --force --no-interaction || echo "APP_KEY=base64:$(openssl rand -base64 32)" >> .env
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \

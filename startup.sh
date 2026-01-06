@@ -48,12 +48,6 @@ L5_SWAGGER_CONST_HOST=${APP_URL}/api
 EOF
 fi
 
-# Generate key if not exists
-if ! grep -q "APP_KEY=base64:" .env; then
-    echo "Generating application key..."
-    php artisan key:generate --force
-fi
-
 # Create directories
 echo "Creating directories..."
 mkdir -p storage/framework/{sessions,views,cache}
@@ -76,7 +70,7 @@ php artisan config:cache 2>/dev/null || true
 
 # Generate Swagger (AFTER config cache)
 echo "Generating Swagger documentation..."
-php artisan l5-swagger:generate --force 2>&1 || echo "Warning: Swagger generation failed"
+php artisan l5-swagger:generate 2>&1 || echo "Warning: Swagger generation failed"
 
 # Cache routes (AFTER Swagger generation)
 echo "Caching routes..."
